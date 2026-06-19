@@ -113,54 +113,58 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
 // ==========================================
 // 5. 主生成逻辑
 // ==========================================
-int main() {
-    std::cout << "=== 离线许可证生成器 (Linux 稳健版) ===" << std::endl;
+int main(int argc, char* argv[]) {
+    if (argc = 3) {
+        std::cout << "=== 离线许可证生成器 (Linux 稳健版) ===" << std::endl;
 
-    // 定义外部私钥文件路径（默认读取可执行文件同目录下的 private.key）
-    const std::string PRIVATE_KEY_PATH = "private.key";
+        // 定义外部私钥文件路径（默认读取可执行文件同目录下的 private.key）
+        const std::string PRIVATE_KEY_PATH = "private.key";
 
-    // 1. 模拟输入的授权信息
-    std::string hardware_id = "516c90bc89451a2e"; // 客户给你的硬件指纹
-    std::string expire_date = "2027-12-31";       // 截止日期
-    std::string features = "Module_A|Module_B";   // 开启的功能模块
+        // 1. 模拟输入的授权信息
+        std::string hardware_id = argv[1]; // 客户给你的硬件指纹
+        std::string expire_date = argv[2];       // 截止日期
+        std::string features = argv[3];   // 开启的功能模块
 
-    // 拼接原始授权明文
-    std::string raw_license_data = hardware_id + "," + expire_date + "," + features;
-    std::cout << "[1] 授权明文: " << raw_license_data << std::endl;
+        // 拼接原始授权明文
+        std::string raw_license_data = hardware_id + "," + expire_date + "," + features;
+        std::cout << "[1] 授权明文: " << raw_license_data << std::endl;
 
-    // 2. AES 加密
-    std::vector<unsigned char> cipher_text;
-    if (!AesEncrypt(raw_license_data, cipher_text)) {
-        std::cerr << "AES 加密失败！" << std::endl;
-        return -1;
+        // 2. AES 加密
+        std::vector<unsigned char> cipher_text;
+        if (!AesEncrypt(raw_license_data, cipher_text)) {
+            std::cerr << "AES 加密失败！" << std::endl;
+            return -1;
+        }
+        std::string b64_cipher = Base64Encode(cipher_text);
+        std::cout << "[2] AES 密文(Base64): " << b64_cipher << std::endl;
+
+        // 3. RSA 签名 (传入私钥文件路径)
+        std::vector<unsigned char> signature;
+        if (!RsaSignWithFile(cipher_text, signature, PRIVATE_KEY_PATH)) {
+            std::cerr << "RSA 签名失败！中断退出。" << std::endl;
+            ERR_print_errors_fp(stderr); // 打印 OpenSSL 底层错误栈
+            return -1;
+        }
+        std::string b64_signature = Base64Encode(signature);
+        std::cout << "[3] RSA 签名(Base64): " << b64_signature << std::endl;
+
+        // 4. 组合最终的 License 文件内容
+        std::string final_license = b64_cipher + "." + b64_signature;
+
+        std::cout << "\n================ 最终 LICENSE 文件内容 ================\n";
+        std::cout << final_license << "\n";
+        std::cout << "=======================================================\n";
+
+        // 顺手做个自动化：直接把 License 内容写入到同目录的 license.lic 文件中
+        std::ofstream lic_file("license.lic");
+        if (lic_file.is_open()) {
+            lic_file << final_license;
+            lic_file.close();
+            std::cout << "[+] 自动化成功：已自动将授权证书导出至同目录下的 license.lic" << std::endl;
+        }
     }
-    std::string b64_cipher = Base64Encode(cipher_text);
-    std::cout << "[2] AES 密文(Base64): " << b64_cipher << std::endl;
-
-    // 3. RSA 签名 (传入私钥文件路径)
-    std::vector<unsigned char> signature;
-    if (!RsaSignWithFile(cipher_text, signature, PRIVATE_KEY_PATH)) {
-        std::cerr << "RSA 签名失败！中断退出。" << std::endl;
-        ERR_print_errors_fp(stderr); // 打印 OpenSSL 底层错误栈
-        return -1;
+    else {
+        std::cerr << "须传入三个参数！\nThree parameters are needed!\n"
     }
-    std::string b64_signature = Base64Encode(signature);
-    std::cout << "[3] RSA 签名(Base64): " << b64_signature << std::endl;
-
-    // 4. 组合最终的 License 文件内容
-    std::string final_license = b64_cipher + "." + b64_signature;
-
-    std::cout << "\n================ 最终 LICENSE 文件内容 ================\n";
-    std::cout << final_license << "\n";
-    std::cout << "=======================================================\n";
-
-    // 顺手做个自动化：直接把 License 内容写入到同目录的 license.lic 文件中
-    std::ofstream lic_file("license.lic");
-    if (lic_file.is_open()) {
-        lic_file << final_license;
-        lic_file.close();
-        std::cout << "[+] 自动化成功：已自动将授权证书导出至同目录下的 license.lic" << std::endl;
-    }
-
     return 0;
 }
