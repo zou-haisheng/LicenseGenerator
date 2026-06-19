@@ -1,18 +1,11 @@
 ﻿#include <iostream>
 #include <string>
 #include <vector>
+#include <fstream>  // 引入标准文件流
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/err.h>
-
-// ==========================================
-// 1. 硬编码的服务端私钥（绝对不能泄露给客户端！）
-// ==========================================
-const std::string PRIVATE_KEY =
-"-----BEGIN PRIVATE KEY-----\n"
-"MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC7...\n" // 替换为你的真实RSA私钥
-"-----END PRIVATE KEY-----\n";
 
 // 32字节的 AES 密钥 和 16字节的 IV（必须与客户端一致）
 const std::vector<unsigned char> AES_KEY = { 'M','y','S','e','c','r','e','t','A','E','S','K','e','y','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8' };
@@ -70,14 +63,26 @@ bool AesEncrypt(const std::string& plainText, std::vector<unsigned char>& cipher
 }
 
 // ==========================================
-// 4. RSA 私钥签名 (SHA-256)
+// 4. 重构：从外部文件读取私钥并进行 RSA 私钥签名 (SHA-256)
 // ==========================================
-bool RsaSign(const std::vector<unsigned char>& data, std::vector<unsigned char>& signature) {
-    BIO* bio = BIO_new_mem_buf(PRIVATE_KEY.c_str(), -1);
-    EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
-    BIO_free(bio);
-    if (!pkey) return false;
+bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigned char>& signature, const std::string& keyPath) {
+    // 1. 使用 OpenSSL 原生的文件 BIO 直接读取外部文件，比标准 C++ 文件流效率更高更安全
+    BIO* bio = BIO_new_file(keyPath.c_str(), "r");
+    if (!bio) {
+        std::cerr << "[-] 错误：无法打开私钥文件，请检查路径: " << keyPath << std::endl;
+        return false;
+    }
 
+    // 2. 从文件 BIO 中解析 PEM 格式的私钥
+    EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, NULL);
+    BIO_free(bio); // 读完立刻释放文件句柄
+
+    if (!pkey) {
+        std::cerr << "[-] 错误：私钥解析失败，请确保文件是标准 PEM 格式！" << std::endl;
+        return false;
+    }
+
+    // 3. 经典的 EVP 签名流程
     EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
     if (1 != EVP_SignInit_ex(md_ctx, EVP_sha256(), NULL)) {
         EVP_PKEY_free(pkey);
@@ -101,8 +106,7 @@ bool RsaSign(const std::vector<unsigned char>& data, std::vector<unsigned char>&
     signature.resize(sig_len);
 
     EVP_MD_CTX_free(md_ctx);
-    // 强制清除内存中的敏感私钥信息
-    EVP_PKEY_free(pkey);
+    EVP_PKEY_free(pkey); // 强制安全清除内存中的敏感私钥
     return true;
 }
 
@@ -110,12 +114,15 @@ bool RsaSign(const std::vector<unsigned char>& data, std::vector<unsigned char>&
 // 5. 主生成逻辑
 // ==========================================
 int main() {
-    std::cout << "=== 离线许可证生成器 ===" << std::endl;
+    std::cout << "=== 离线许可证生成器 (Linux 稳健版) ===" << std::endl;
 
-    // 1. 模拟输入的授权信息（实际可以从命令行参数或前端输入获取）
+    // 定义外部私钥文件路径（默认读取可执行文件同目录下的 private.key）
+    const std::string PRIVATE_KEY_PATH = "private.key";
+
+    // 1. 模拟输入的授权信息
     std::string hardware_id = "516c90bc89451a2e"; // 客户给你的硬件指纹
     std::string expire_date = "2027-12-31";       // 截止日期
-    std::string features = "Module_A|Module_B"; // 开启的功能模块
+    std::string features = "Module_A|Module_B";   // 开启的功能模块
 
     // 拼接原始授权明文
     std::string raw_license_data = hardware_id + "," + expire_date + "," + features;
@@ -130,23 +137,30 @@ int main() {
     std::string b64_cipher = Base64Encode(cipher_text);
     std::cout << "[2] AES 密文(Base64): " << b64_cipher << std::endl;
 
-    // 3. RSA 签名 (对 AES 密文内容进行签名)
+    // 3. RSA 签名 (传入私钥文件路径)
     std::vector<unsigned char> signature;
-    if (!RsaSign(cipher_text, signature)) {
-        std::cerr << "RSA 签名失败！请检查私钥是否正确。" << std::endl;
+    if (!RsaSignWithFile(cipher_text, signature, PRIVATE_KEY_PATH)) {
+        std::cerr << "RSA 签名失败！中断退出。" << std::endl;
+        ERR_print_errors_fp(stderr); // 打印 OpenSSL 底层错误栈
         return -1;
     }
     std::string b64_signature = Base64Encode(signature);
     std::cout << "[3] RSA 签名(Base64): " << b64_signature << std::endl;
 
     // 4. 组合最终的 License 文件内容
-    // 格式定义：密文Base64 + "." + 签名Base64
     std::string final_license = b64_cipher + "." + b64_signature;
 
     std::cout << "\n================ 最终 LICENSE 文件内容 ================\n";
     std::cout << final_license << "\n";
     std::cout << "=======================================================\n";
-    std::cout << "(请将上方完整字符串保存为 license.lic 发放给客户)" << std::endl;
+
+    // 顺手做个自动化：直接把 License 内容写入到同目录的 license.lic 文件中
+    std::ofstream lic_file("license.lic");
+    if (lic_file.is_open()) {
+        lic_file << final_license;
+        lic_file.close();
+        std::cout << "[+] 自动化成功：已自动将授权证书导出至同目录下的 license.lic" << std::endl;
+    }
 
     return 0;
 }
