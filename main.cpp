@@ -164,7 +164,7 @@ int main(int argc, char* argv[]) {
         }
     }
     else {
-        std::cerr << "须传入三个参数！\nThree parameters are needed!\n";
+        std::cerr << "须传入三个参数！\nThree parameters are needed!\n"；
     }
     return 0;
 }
