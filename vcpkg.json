@@ -1,0 +1,8 @@
+﻿{
+  "name": "license-generator",
+  "version-string": "1.0.0",
+  "builtin-baseline": "f3e10653cc27d62a37a3763cd84b38bca07c6075",
+  "dependencies": [
+    "openssl"
+  ]
+}
