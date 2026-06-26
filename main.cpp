@@ -9,6 +9,8 @@
 #include <cstdlib>
 #include <nlohmann/json.hpp>
 
+using json = nlohmann::json;
+
 // 32字节的 AES 密钥 和 16字节的 IV（必须与客户端一致）
 const std::vector<unsigned char> AES_KEY = { 'M','y','S','e','c','r','e','t','A','E','S','K','e','y','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8' };
 const std::vector<unsigned char> AES_IV = { 'I','n','i','t','V','e','c','t','o','r','1','2','3','4','5','6' };
@@ -138,13 +140,13 @@ int main(int argc, char* argv[]) {
             json_load >> tmp_data;
         }
         // 向可操作对象中添加指定数量的激活码字典
-        for (int i = 0; i < argv[3]; i++) {
+        for (int i = 0; i < std::stoi(argv[3]); i++) { // 用stoi将argv[3]由字符串指针转换为整型
             activate_key = "ACTIVATE-" + std::to_string(rand() % 1000000);
             tmp_data[activate_key] = { {"status", False}, {"features", argv[2]} };
         }
         // 将生成的激活码追加写入数据库中
         {
-            std::ofstream json_write("~/database/" + std::string(argv[2]) + "/activate.json");
+            std::ofstream json_write(databasePath);
             if (!json_write.is_open()) {
                 std::cerr << "[-] 错误：无法写入文件，请检查路径权限！\nError: Unable to write in files, please check permission of the address!" << std::endl;
                 return -1;
