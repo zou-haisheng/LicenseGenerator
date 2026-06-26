@@ -111,25 +111,11 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
     return true;
 }
 
-int GenerateActivateKey(int count) {
-    std::string activate_key = "[";
-    for (int i = 0; i < count; ++i) {
-        // 生成随机激活码（示例：使用简单的随机数生成器，实际可替换为更复杂的算法）
-        std::string key = "ACTIVATE-" + std::to_string(rand() % 1000000);
-        activate_key += "\"" + key + "\"";
-        if (i < count - 1) {
-            activate_key += ",";
-        }
-    }
-    activate_key += "]";
-    return activate_key;
-}
-
 // ==========================================
 // 5. 主生成逻辑
 // ==========================================
 int main(int argc, char* argv[]) {
-    if (argc = 3 and argv[1] = "-c") {
+    if (argc == 3 and argv[1] == "-c") {
         // 生成指定数量的激活码并写入~/database/ + features（即argv[2]）+ /actuvate.json
         std::cout << "=== 批量激活码生成器 ===" << std::endl;
         // 获取 Linux 家目录环境变量
@@ -140,6 +126,7 @@ int main(int argc, char* argv[]) {
         }
         std::string databasePath = std::string(homeDir) + "/database/" + std::string(argv[2]) + "/activate.json";
         std::string activate_key;
+        json tmp_data;
         // 加载数据库，并将其导入到可操作的对象中
         {
             std::ifstream json_load(databasePath);
