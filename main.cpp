@@ -7,6 +7,7 @@
 #include <openssl/rsa.h>
 #include <openssl/err.h>
 #include <cstdlib>
+#include <nlohmann/json.hpp>
 
 // 32字节的 AES 密钥 和 16字节的 IV（必须与客户端一致）
 const std::vector<unsigned char> AES_KEY = { 'M','y','S','e','c','r','e','t','A','E','S','K','e','y','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8' };
