@@ -11,8 +11,8 @@ find_package(nlohmann_json CONFIG REQUIRED)
 file(GLOB SOURCES "*.cpp")
 
 add_executable(LicenseGenerator ${SOURCES})
-target_include_directories(LicenseGenerator PRIVATE ${OPENSSL_INSSL_INCLUDE_DIR})
-target_link_libraries(main PRIVATE nlohmann_json::nlohmann_json)
+target_include_directories(LicenseGenerator PRIVATE ${OPENSSL_INCLUDE_DIR})
+target_link_libraries(LicenseGenerator PRIVATE nlohmann_json::nlohmann_json)
 target_link_libraries(LicenseGenerator PRIVATE
     OpenSSL::Crypto
     OpenSSL::SSL
