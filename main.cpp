@@ -114,7 +114,19 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
 // 5. 主生成逻辑
 // ==========================================
 int main(int argc, char* argv[]) {
-    if (argc = 3) {
+    if (argc = 3 and argv[1] = "-c") {
+        // 生成指定数量的激活码并写入~/database/ + features（即argv[2]）+ /actuvate.json
+        std::cout << "=== 批量激活码生成器 ===" << std::endl;
+        std::string activate_key = GenerateActivateKey(argv[3]); // 生成指定数量的激活码
+        std::ofstream json_file("~/database/" + std::string(argv[2]) + "/activate.json");
+        if (json_file.is_open()) {
+            json_file << activate_key;
+            json_file.close();
+            std::cout << "[+] 批量激活码已生成并写入 ~/database/" << argv[2] << "/activate.json" << std::endl;
+        } else {
+            std::cerr << "[-] 错误：无法写入文件，请检查路径权限！\nError: Unable to write in files, please check permission of the address!" << std::endl;
+    }
+    else if (argc = 3) {
         std::cout << "=== 离线许可证生成器 (Linux 稳健版) ===" << std::endl;
 
         // 定义外部私钥文件路径（默认读取可执行文件同目录下的 private.key）
@@ -155,16 +167,16 @@ int main(int argc, char* argv[]) {
         std::cout << final_license << "\n";
         std::cout << "=======================================================\n";
 
-        // 顺手做个自动化：直接把 License 内容写入到同目录的 license.lic 文件中
-        std::ofstream lic_file("license.lic");
-        if (lic_file.is_open()) {
-            lic_file << final_license;
-            lic_file.close();
-            std::cout << "[+] 自动化成功：已自动将授权证书导出至同目录下的 license.lic" << std::endl;
-        }
+        //// 顺手做个自动化：直接把 License 内容写入到同目录的 license.lic 文件中
+        //std::ofstream lic_file("license.lic");
+        //if (lic_file.is_open()) {
+        //    lic_file << final_license;
+        //    lic_file.close();
+        //    std::cout << "[+] 自动化成功：已自动将授权证书导出至同目录下的 license.lic" << std::endl;
+        //}
     }
     else {
-        std::cerr << "须传入三个参数！\nThree parameters are needed!\n";
+        std::cerr << "非法传参！\nInvalid parameters!\n";
     }
     return 0;
 }

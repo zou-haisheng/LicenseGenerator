@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# 忽略 vcpkg 自动生成的本地构建和依赖目录
+vcpkg_installed/
+vcpkg/
+/build/CMakeFiles
+/build/CMakeCache.txt
