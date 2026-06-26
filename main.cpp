@@ -6,6 +6,7 @@
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/err.h>
+#include <cstdlib>
 
 // 32字节的 AES 密钥 和 16字节的 IV（必须与客户端一致）
 const std::vector<unsigned char> AES_KEY = { 'M','y','S','e','c','r','e','t','A','E','S','K','e','y','1','2','3','4','5','6','7','8','9','0','1','2','3','4','5','6','7','8' };
@@ -110,6 +111,20 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
     return true;
 }
 
+int GenerateActivateKey(int count) {
+    std::string activate_key = "[";
+    for (int i = 0; i < count; ++i) {
+        // 生成随机激活码（示例：使用简单的随机数生成器，实际可替换为更复杂的算法）
+        std::string key = "ACTIVATE-" + std::to_string(rand() % 1000000);
+        activate_key += "\"" + key + "\"";
+        if (i < count - 1) {
+            activate_key += ",";
+        }
+    }
+    activate_key += "]";
+    return activate_key;
+}
+
 // ==========================================
 // 5. 主生成逻辑
 // ==========================================
@@ -117,14 +132,38 @@ int main(int argc, char* argv[]) {
     if (argc = 3 and argv[1] = "-c") {
         // 生成指定数量的激活码并写入~/database/ + features（即argv[2]）+ /actuvate.json
         std::cout << "=== 批量激活码生成器 ===" << std::endl;
-        std::string activate_key = GenerateActivateKey(argv[3]); // 生成指定数量的激活码
-        std::ofstream json_file("~/database/" + std::string(argv[2]) + "/activate.json");
-        if (json_file.is_open()) {
-            json_file << activate_key;
-            json_file.close();
-            std::cout << "[+] 批量激活码已生成并写入 ~/database/" << argv[2] << "/activate.json" << std::endl;
-        } else {
-            std::cerr << "[-] 错误：无法写入文件，请检查路径权限！\nError: Unable to write in files, please check permission of the address!" << std::endl;
+        // 获取 Linux 家目录环境变量
+        const char* homeDir = std::getenv("HOME");
+        if (!homeDir) {
+            std::cerr << "[-] 错误：无法获取 Linux 家目录环境变量！" << std::endl;
+            return -1;
+        }
+        std::string databasePath = std::string(homeDir) + "/database/" + std::string(argv[2]) + "/activate.json";
+        std::string activate_key;
+        // 加载数据库，并将其导入到可操作的对象中
+        {
+            std::ifstream json_load(databasePath);
+            if (!json_load.is_open()) {
+                std::cerr << "[-] 错误：无法读取文件，请检查路径权限！\nError: Unable to load files, please check permission of the address!" << std::endl;
+                return -1;
+            }
+            json_load >> tmp_data;
+        }
+        // 向可操作对象中添加指定数量的激活码字典
+        for (int i = 0; i < argv[3]; i++) {
+            activate_key = "ACTIVATE-" + std::to_string(rand() % 1000000);
+            tmp_data[activate_key] = { {"status", False}, {"features", argv[2]} };
+        }
+        // 将生成的激活码追加写入数据库中
+        {
+            std::ofstream json_write("~/database/" + std::string(argv[2]) + "/activate.json");
+            if (!json_write.is_open()) {
+                std::cerr << "[-] 错误：无法写入文件，请检查路径权限！\nError: Unable to write in files, please check permission of the address!" << std::endl;
+                return -1;
+            }
+            json_write << tmp_data.dump(4);
+        }
+        std::cout << "[+] 批量激活码已生成并写入 ~/database/" << argv[2] << "/activate.json" << std::endl;
     }
     else if (argc = 3) {
         std::cout << "=== 离线许可证生成器 (Linux 稳健版) ===" << std::endl;
@@ -163,17 +202,7 @@ int main(int argc, char* argv[]) {
         // 4. 组合最终的 License 文件内容
         std::string final_license = b64_cipher + "." + b64_signature;
 
-        std::cout << "\n================ 最终 LICENSE 文件内容 ================\n";
         std::cout << final_license << "\n";
-        std::cout << "=======================================================\n";
-
-        //// 顺手做个自动化：直接把 License 内容写入到同目录的 license.lic 文件中
-        //std::ofstream lic_file("license.lic");
-        //if (lic_file.is_open()) {
-        //    lic_file << final_license;
-        //    lic_file.close();
-        //    std::cout << "[+] 自动化成功：已自动将授权证书导出至同目录下的 license.lic" << std::endl;
-        //}
     }
     else {
         std::cerr << "非法传参！\nInvalid parameters!\n";
