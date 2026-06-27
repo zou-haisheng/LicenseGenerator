@@ -7,6 +7,7 @@
 #include <openssl/rsa.h>
 #include <openssl/err.h>
 #include <cstdlib>
+#include <cstring>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -31,6 +32,52 @@ std::string Base64Encode(const std::vector<unsigned char>& buffer) {
     std::string result(bufferPtr->data, bufferPtr->length);
     BIO_free_all(bio);
     return result;
+}
+
+// 辅助函数，防止 Base64 编码中出现 '+' 和 '/'，并去掉末尾的 '='，以便在命令行中安全输入
+std::string makeB64Safe(std::string b64) {
+    std::replace(b64.begin(), b64.end(), '+', '-'); // '+' 换成 '-'
+    std::replace(b64.begin(), b64.end(), '/', '_'); // '/' 换成 '_'
+    b64.erase(std::remove(b64.begin(), b64.end(), '='), b64.end()); // 删掉末尾的 '='
+    return b64;
+}
+
+// 辅助函数：计算 SHA-256 并返回十六进制字符串
+std::string getSHA256(const std::string& input) {
+    // 1. 创建并初始化上下文环境
+    EVP_MD_CTX* mdCtx = EVP_MD_CTX_new();
+    if (!mdCtx) return "";
+
+    // 2. 指定使用 SHA-256 算法
+    if (EVP_DigestInit_ex(mdCtx, EVP_sha256(), nullptr) != 1) {
+        EVP_MD_CTX_free(mdCtx);
+        return "";
+    }
+
+    // 3. 传入要计算的数据
+    if (EVP_DigestUpdate(mdCtx, input.c_str(), input.length()) != 1) {
+        EVP_MD_CTX_free(mdCtx);
+        return "";
+    }
+
+    // 4. 获取哈希结果（SHA-256 结果固定为 32 字节）
+    std::vector<unsigned char> hash(EVP_MAX_MD_SIZE);
+    unsigned int hashLen = 0;
+
+    if (EVP_DigestFinal_ex(mdCtx, hash.data(), &hashLen) != 1) {
+        EVP_MD_CTX_free(mdCtx);
+        return "";
+    }
+
+    // 5. 释放上下文内存
+    EVP_MD_CTX_free(mdCtx);
+
+    // 6. 将 32 字节的二进制数据转换为 64 位的十六进制可见字符串
+    std::stringstream ss;
+    for (unsigned int i = 0; i < hashLen; ++i) {
+        ss << std::setw(2) << std::setfill('0') << std::hex << (int)hash[i];
+    }
+    return ss.str();
 }
 
 // ==========================================
@@ -112,6 +159,49 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
     EVP_MD_CTX_free(md_ctx);
     EVP_PKEY_free(pkey); // 强制安全清除内存中的敏感私钥
     return true;
+}
+
+// 激活码生成
+string ActivateKeyGenerate(std::string expire_date, std::string features, int i) {
+    // 初始化激活码原始数据
+    std::string activate_key;
+    std::string tmp_string = getSHA256(expire_date + "-" + features  + "-" + std::to_string(i));
+    int autoincrementId;
+    // 2. AES 加密
+    std::vector<unsigned char> cipher_text;
+    if (!AesEncrypt(tmp_string, cipher_text)) {
+        std::cerr << "AES 加密失败！" << std::endl;
+        return "AES Failed!";
+    }
+    std::string b64_cipher = Base64Encode(cipher_text);
+    std::cout << "[2] AES 密文(Base64): " << b64_cipher << std::endl;
+
+    // 3. RSA 签名 (传入私钥文件路径)
+    std::vector<unsigned char> signature;
+    if (!RsaSignWithFile(cipher_text, signature, PRIVATE_KEY_PATH)) {
+        std::cerr << "RSA 签名失败！中断退出。" << std::endl;
+        ERR_print_errors_fp(stderr); // 打印 OpenSSL 底层错误栈
+        return -1;
+    }
+    std::string b64_signature = Base64Encode(signature);
+    std::cout << "[3] RSA 签名(Base64): " << b64_signature << std::endl;
+
+    // 4. 切出前 6 位作为激活码后段
+    std::vector<unsigned char> buffer(10);
+
+    // 【核心操作】：把 4 字节的 int 拆开塞进 vector 的前 4 个位置
+    // 这里使用位移操作（Shift），不仅比 memcpy 更安全，而且能自动统一大小端问题
+    buffer[0] = (autoIncrementId >> 24) & 0xFF;
+    buffer[1] = (autoIncrementId >> 16) & 0xFF;
+    buffer[2] = (autoIncrementId >> 8) & 0xFF;
+    buffer[3] = autoIncrementId & 0xFF;
+
+    // 把 6 字节的短签名塞进 vector 的后 6 个位置
+    for (int i = 0; i < 6; ++i) {
+        buffer[4 + i] = static_cast<unsigned char>(shortSignature[i]);
+    }
+    activate_key = makeB64Safe(Base64Encode(buffer));
+    return activate_key;
 }
 
 // ==========================================
