@@ -118,7 +118,7 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
 // 5. 主生成逻辑
 // ==========================================
 int main(int argc, char* argv[]) {
-    if (argc == 3 and argv[1] == "-c") {
+    if (argc == 4 and argv[1] == "-c") {
         // 生成指定数量的激活码并写入~/database/ + features（即argv[2]）+ /actuvate.json
         std::cout << "=== 批量激活码生成器 ===" << std::endl;
         // 获取 Linux 家目录环境变量
@@ -139,10 +139,13 @@ int main(int argc, char* argv[]) {
             }
             json_load >> tmp_data;
         }
+        // 输入的生成信息
+        std::string expire_date = argv[2];       // 截止日期
+        std::string features = argv[3];   // 开启的功能模块
         // 向可操作对象中添加指定数量的激活码字典
-        for (int i = 0; i < std::stoi(argv[3]); i++) { // 用stoi将argv[3]由字符串指针转换为整型
+        for (int i = 0; i < std::stoi(argv[4]); i++) { // 用stoi将argv[3]由字符串指针转换为整型
             activate_key = "ACTIVATE-" + std::to_string(rand() % 1000000);
-            tmp_data[activate_key] = { {"status", false}, {"features", argv[2]} };
+            tmp_data[activate_key] = { {"status", false}, {"expire_date", expire_date, {"features", features}};
         }
         // 将生成的激活码追加写入数据库中
         {
@@ -161,7 +164,7 @@ int main(int argc, char* argv[]) {
         // 定义外部私钥文件路径（默认读取可执行文件同目录下的 private.key）
         const std::string PRIVATE_KEY_PATH = "private.key";
 
-        // 1. 模拟输入的授权信息
+        // 1. 输入的授权信息
         std::string hardware_id = argv[1]; // 客户给你的硬件指纹
         std::string expire_date = argv[2];       // 截止日期
         std::string features = argv[3];   // 开启的功能模块
