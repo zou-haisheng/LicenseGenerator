@@ -238,7 +238,7 @@ int main(int argc, char* argv[]) {
         int start_index = tmp_data.size(); // 获取当前数据库中已有的激活码数量，作为自增 ID 的起始值
         int end_index = start_index + std::stoi(argv[4]); // 计算结束索引，用stoi将argv[3]由字符串指针转换为整型
         for (int i = start_index; i < end_index; i++) {
-            activate_key = ActivateKeyGenerate(expire_date, features, std::string(homeDir) + "/private.key", i);
+            activate_key = ActivateKeyGenerate(expire_date, features, std::string(homeDir) + "/key/private.key", i);
             tmp_data[activate_key] = { {"status", false}, {"expire_date", expire_date}, {"features", features} };
         }
         // 将生成的激活码追加写入数据库中
@@ -260,7 +260,7 @@ int main(int argc, char* argv[]) {
             return -1;
         }
         // 定义外部私钥文件路径（指定绝对路径）
-        const std::string PRIVATE_KEY_PATH = std::string(homeDir) + "/private.key";
+        const std::string PRIVATE_KEY_PATH = std::string(homeDir) + "/key/private.key";
 
         // 1. 输入的授权信息
         std::string hardware_id = argv[1]; // 客户给你的硬件指纹
