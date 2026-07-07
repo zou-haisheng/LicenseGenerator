@@ -143,17 +143,22 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
 
     bool is_success = false; // 引入状态flag，确保任何分支退出都能进入底部统一释放资源
 
-    if (1 != EVP_SignInit_ex(md_ctx, EVP_sha256(), NULL)) {
-        if (1 != EVP_SignUpdate(md_ctx, data.data(), data.size())) {
+    if (1 == EVP_SignInit_ex(md_ctx, EVP_sha256(), NULL)) {
+        if (1 == EVP_SignUpdate(md_ctx, data.data(), data.size())) {
             unsigned int sig_len = EVP_PKEY_size(pkey);
             signature.resize(sig_len);
 
-            if (1 != EVP_SignFinal(md_ctx, signature.data(), &sig_len, pkey)) {
+            if (1 == EVP_SignFinal(md_ctx, signature.data(), &sig_len, pkey)) {
                 signature.resize(sig_len);
                 is_success = true;    // 全部成功才设置为true
                 std::cout << "[+] RSA 签名成功，签名长度: " << sig_len << " 字节" << std::endl;
             }
         }
+    }
+
+    if (!is_success) {   // 如果任何步骤失败，打印详细错误信息
+        std::cerr << "[-] OpenSSL 内部签名失败，错误详情：" << std::endl;
+        ERR_print_errors_fp(stderr);
     }
 
     EVP_MD_CTX_free(md_ctx);
