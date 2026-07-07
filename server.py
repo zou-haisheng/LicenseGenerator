@@ -11,7 +11,6 @@ def activate():
     data = request.json
     hardware_id = data.get("hardware_id")
     activate_key = data.get("activate_key") 
-    features = data.get("features")
     # 准备数据库路径
     database_path = Path.home() / "database" / "activate.json"
     database_path.parent.mkdir(parents=True, exist_ok=True) # 如果路径不存在，自动创建
@@ -21,20 +20,21 @@ def activate():
             activate_data = json.read(f)
             if activate_key not in activate_data:
                 return jsonify({"status": "error", "message": "Invalid activation key"}), 400
-            if activate_data[activate_key].get("features") != features:
-                return jsonify({"status": "error", "message": "Feature mismatch"}), 400
+#            if activate_data[activate_key].get("features") != features:
+#                return jsonify({"status": "error", "message": "Feature mismatch"}), 400
     except Exception as e:
         print(f"Error reading activation data: {e}")
         return jsonify({"status": "error", "message": "Server error"}), 400
     expire_date = activate_data.get("activate_key").get("expire_date")  # 授权时间（查数据库）
     status = activate_data.get("activate_key").get("status")  # 状态（查数据库）
+    features = activate_data.get("activate_key").get("features")  # 功能（查数据库）
 
     if not hardware_id:
         return jsonify({"status": "error", "message": "Missing hardware ID"}), 400
 
     if status == False:
         try:
-            # 2. 核心联动：直接调用你编译好的 C++ 静态大炮
+            # 2. 核心联动：直接调用编译好的 C++ 静态大炮
             # C++ 传参优化成了接受命令行参数：./LicenseGenerator <hardware_id> <expire_date> <features>
             result = subprocess.run(
                 ['./LicenseGenerator', hardware_id, expire_date, features],

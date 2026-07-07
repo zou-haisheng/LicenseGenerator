@@ -249,9 +249,7 @@ int main(int argc, char* argv[]) {
         std::cout << "[+] 批量激活码已生成并写入 ~/database/" << argv[2] << "/activate.json" << std::endl;
     }
     else if (argc = 3) {
-        std::cout << "=== 离线许可证生成器 (Linux 稳健版) ===" << std::endl;
-
-        // 定义外部私钥文件路径（默认读取可执行文件同目录下的 private.key）
+        // 定义外部私钥文件路径（默认读取可执行文件同目录下的 private.key） *以后可升级为指定绝对路径
         const std::string PRIVATE_KEY_PATH = "private.key";
 
         // 1. 输入的授权信息
@@ -261,7 +259,7 @@ int main(int argc, char* argv[]) {
 
         // 拼接原始授权明文
         std::string raw_license_data = hardware_id + "," + expire_date + "," + features;
-        std::cout << "[1] 授权明文: " << raw_license_data << std::endl;
+        //std::cout << "[1] 授权明文: " << raw_license_data << std::endl;
 
         // 2. AES 加密
         std::vector<unsigned char> cipher_text;
@@ -270,7 +268,7 @@ int main(int argc, char* argv[]) {
             return -1;
         }
         std::string b64_cipher = Base64Encode(cipher_text);
-        std::cout << "[2] AES 密文(Base64): " << b64_cipher << std::endl;
+        //std::cout << "[2] AES 密文(Base64): " << b64_cipher << std::endl;
 
         // 3. RSA 签名 (传入私钥文件路径)
         std::vector<unsigned char> signature;
@@ -280,7 +278,7 @@ int main(int argc, char* argv[]) {
             return -1;
         }
         std::string b64_signature = Base64Encode(signature);
-        std::cout << "[3] RSA 签名(Base64): " << b64_signature << std::endl;
+        //std::cout << "[3] RSA 签名(Base64): " << b64_signature << std::endl;
 
         // 4. 组合最终的 License 文件内容
         std::string final_license = b64_cipher + "." + b64_signature;
