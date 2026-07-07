@@ -162,11 +162,11 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
 }
 
 // 激活码生成
-std::string ActivateKeyGenerate(std::string expire_date, std::string features, int i) {
+std::string ActivateKeyGenerate(std::string expire_date, std::string features, std::string PRIVATE_KEY_PATH, int num) {
     // 初始化激活码原始数据
     std::string activate_key;
-    std::string tmp_string = getSHA256(expire_date + "-" + features  + "-" + std::to_string(i));
-    int autoincrementId;
+    std::string tmp_string = getSHA256(expire_date + "-" + features  + "-" + std::to_string(num));
+    int autoIncrementId = num;
     // 2. AES 加密
     std::vector<unsigned char> cipher_text;
     if (!AesEncrypt(tmp_string, cipher_text)) {
@@ -181,12 +181,16 @@ std::string ActivateKeyGenerate(std::string expire_date, std::string features, i
     if (!RsaSignWithFile(cipher_text, signature, PRIVATE_KEY_PATH)) {
         std::cerr << "RSA 签名失败！中断退出。" << std::endl;
         ERR_print_errors_fp(stderr); // 打印 OpenSSL 底层错误栈
-        return -1;
+        return "RSA Failed";
     }
     std::string b64_signature = Base64Encode(signature);
     std::cout << "[3] RSA 签名(Base64): " << b64_signature << std::endl;
 
     // 4. 切出前 6 位作为激活码后段
+    if (signature.size() < 6) {      // 检查签名长度是否足够
+        std::cerr << "错误：RSA 签名长度不足 6 字节！" << std::endl;
+        return "Signature Too Short";
+    }
     std::vector<unsigned char> buffer(10);
 
     // 【核心操作】：把 4 字节的 int 拆开塞进 vector 的前 4 个位置
@@ -198,7 +202,7 @@ std::string ActivateKeyGenerate(std::string expire_date, std::string features, i
 
     // 把 6 字节的短签名塞进 vector 的后 6 个位置
     for (int i = 0; i < 6; ++i) {
-        buffer[4 + i] = static_cast<unsigned char>(shortSignature[i]);
+        buffer[4 + i] = static_cast<unsigned char>(signature[i]);
     }
     activate_key = makeB64Safe(Base64Encode(buffer));
     return activate_key;
@@ -233,8 +237,10 @@ int main(int argc, char* argv[]) {
         std::string expire_date = argv[2];       // 截止日期
         std::string features = argv[3];   // 开启的功能模块
         // 向可操作对象中添加指定数量的激活码字典
-        for (int i = 0; i < std::stoi(argv[4]); i++) { // 用stoi将argv[3]由字符串指针转换为整型
-            activate_key = "ACTIVATE-" + std::to_string(rand() % 1000000);
+        int start_index = tmp_data.size(); // 获取当前数据库中已有的激活码数量，作为自增 ID 的起始值
+        int end_index = start_index + std::stoi(argv[4]); // 计算结束索引，用stoi将argv[3]由字符串指针转换为整型
+        for (int i = start_index; i < end_index; i++) {
+            activate_key = ActivateKeyGenerate(expire_date, features, std::string(homeDir) + "/private.key", i);
             tmp_data[activate_key] = { {"status", false}, {"expire_date", expire_date}, {"features", features} };
         }
         // 将生成的激活码追加写入数据库中
