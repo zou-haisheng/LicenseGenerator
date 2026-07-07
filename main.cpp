@@ -162,7 +162,7 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
 }
 
 // 激活码生成
-string ActivateKeyGenerate(std::string expire_date, std::string features, int i) {
+std::string ActivateKeyGenerate(std::string expire_date, std::string features, int i) {
     // 初始化激活码原始数据
     std::string activate_key;
     std::string tmp_string = getSHA256(expire_date + "-" + features  + "-" + std::to_string(i));
@@ -235,7 +235,7 @@ int main(int argc, char* argv[]) {
         // 向可操作对象中添加指定数量的激活码字典
         for (int i = 0; i < std::stoi(argv[4]); i++) { // 用stoi将argv[3]由字符串指针转换为整型
             activate_key = "ACTIVATE-" + std::to_string(rand() % 1000000);
-            tmp_data[activate_key] = { {"status", false}, {"expire_date", expire_date, {"features", features}};
+            tmp_data[activate_key] = { {"status", false}, {"expire_date", expire_date}, {"features", features} };
         }
         // 将生成的激活码追加写入数据库中
         {
