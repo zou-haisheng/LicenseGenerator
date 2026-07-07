@@ -135,30 +135,28 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
 
     // 3. 经典的 EVP 签名流程
     EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
+    if (!md_ctx) {   // 检查内存分配是否成功
+        EVP_PKEY_free(pkey);
+        return false;
+    }
+
+    bool is_success = false; // 引入状态flag，确保任何分支退出都能进入底部统一释放资源
+
     if (1 != EVP_SignInit_ex(md_ctx, EVP_sha256(), NULL)) {
-        EVP_PKEY_free(pkey);
-        return false;
-    }
+        if (1 != EVP_SignUpdate(md_ctx, data.data(), data.size())) {
+            unsigned int sig_len = EVP_PKEY_size(pkey);
+            signature.resize(sig_len);
 
-    if (1 != EVP_SignUpdate(md_ctx, data.data(), data.size())) {
-        EVP_MD_CTX_free(md_ctx);
-        EVP_PKEY_free(pkey);
-        return false;
+            if (1 != EVP_SignFinal(md_ctx, signature.data(), &sig_len, pkey)) {
+                signature.resize(sig_len);
+                is_success = true;    // 全部成功才设置为true
+            }
+        }
     }
-
-    unsigned int sig_len = EVP_PKEY_size(pkey);
-    signature.resize(sig_len);
-
-    if (1 != EVP_SignFinal(md_ctx, signature.data(), &sig_len, pkey)) {
-        EVP_MD_CTX_free(md_ctx);
-        EVP_PKEY_free(pkey);
-        return false;
-    }
-    signature.resize(sig_len);
 
     EVP_MD_CTX_free(md_ctx);
     EVP_PKEY_free(pkey); // 强制安全清除内存中的敏感私钥
-    return true;
+    return is_success;
 }
 
 // 激活码生成
@@ -255,8 +253,14 @@ int main(int argc, char* argv[]) {
         std::cout << "[+] 批量激活码已生成并写入 ~/database/" << argv[2] << "/activate.json" << std::endl;
     }
     else if (argc = 3) {
-        // 定义外部私钥文件路径（默认读取可执行文件同目录下的 private.key） *以后可升级为指定绝对路径
-        const std::string PRIVATE_KEY_PATH = "private.key";
+        // 获取 Linux 家目录环境变量
+        const char* homeDir = std::getenv("HOME");
+        if (!homeDir) {
+            std::cerr << "[-] 错误：无法获取 Linux 家目录环境变量！" << std::endl;
+            return -1;
+        }
+        // 定义外部私钥文件路径（指定绝对路径）
+        const std::string PRIVATE_KEY_PATH = std::string(homeDir) + "/private.key";
 
         // 1. 输入的授权信息
         std::string hardware_id = argv[1]; // 客户给你的硬件指纹
