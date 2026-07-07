@@ -217,7 +217,7 @@ std::string ActivateKeyGenerate(std::string expire_date, std::string features, s
 // 5. 主生成逻辑
 // ==========================================
 int main(int argc, char* argv[]) {
-    if (argc == 4 and argv[1] == "-c") {
+    if (argc == 5 and argv[1] == "-c") {
         // 生成指定数量的激活码并写入~/database/ + features（即argv[2]）+ /actuvate.json
         std::cout << "=== 批量激活码生成器 ===" << std::endl;
         // 获取 Linux 家目录环境变量
@@ -259,7 +259,7 @@ int main(int argc, char* argv[]) {
         }
         std::cout << "[+] 批量激活码已生成并写入 ~/database/" << argv[2] << "/activate.json" << std::endl;
     }
-    else if (argc = 3) {
+    else if (argc == 4) {
         // 获取 Linux 家目录环境变量
         const char* homeDir = std::getenv("HOME");
         if (!homeDir) {
