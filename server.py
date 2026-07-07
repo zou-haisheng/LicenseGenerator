@@ -11,12 +11,13 @@ def activate():
     data = request.json
     hardware_id = data.get("hardware_id")
     activate_key = data.get("activate_key") 
+    features = data.get("features")
     # 准备数据库路径
-    database_path = Path.home() / "database" / "activate.json"
-    database_path.parent.mkdir(parents=True, exist_ok=True) # 如果路径不存在，自动创建
+    databasePath = Path.home() / "database" / features / "activate.json"
+    databasePath.parent.mkdir(parents=True, exist_ok=True) # 如果路径不存在，自动创建
     # 读取数据库
     try:
-        with open("~/database/activate.json", "r") as f:
+        with open(databasePath, "r") as f:
             activate_data = json.read(f)
             if activate_key not in activate_data:
                 return jsonify({"status": "error", "message": "Invalid activation key"}), 400
@@ -27,7 +28,6 @@ def activate():
         return jsonify({"status": "error", "message": "Server error"}), 400
     expire_date = activate_data.get("activate_key").get("expire_date")  # 授权时间（查数据库）
     status = activate_data.get("activate_key").get("status")  # 状态（查数据库）
-    features = activate_data.get("activate_key").get("features")  # 功能（查数据库）
 
     if not hardware_id:
         return jsonify({"status": "error", "message": "Missing hardware ID"}), 400
@@ -37,19 +37,19 @@ def activate():
             # 2. 核心联动：直接调用编译好的 C++ 静态大炮
             # C++ 传参优化成了接受命令行参数：./LicenseGenerator <hardware_id> <expire_date> <features>
             result = subprocess.run(
-                ['./LicenseGenerator', hardware_id, expire_date, features],
+                ['./build/LicenseGenerator', hardware_id, expire_date, features],
                 capture_output=True, text=True, check=True
             )
 
             # 3. 直接从标准输出抓取c++输出license
             license_content = result.stdout.strip()
             # 将生成的License写入数据库
-            with open("~/database/activate.json", "r") as f:
+            with open(databasePath, "r") as f:
                 active_data = json.load(f)
                 active_data[activate_key]["license"] = license_content
                 active_data[activate_key]["status"] = True  # 更新状态为已激活
                 active_data[activate_key]["hardware_id"] = hardware_id  # 保存硬件ID
-            with open("~/database/activate.json", "w", encoding="utf-8") as f:
+            with open(databasePath, "w", encoding="utf-8") as f:
                 json.dump(active_data, f, indent=4, ensure_ascii=False)
 
             # 4. 把生成的 License 吐回给 Windows 客户端
