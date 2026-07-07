@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <fstream>  // 引入标准文件流
+#include <filesystem> // 引入 C++17 文件系统库，以便自动创建目录
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
@@ -226,21 +227,24 @@ int main(int argc, char* argv[]) {
             std::cerr << "[-] 错误：无法获取 Linux 家目录环境变量！" << std::endl;
             return -1;
         }
-        std::string databasePath = std::string(homeDir) + "/database/" + std::string(argv[2]) + "/activate.json";
+        // 输入的生成信息
+        std::string expire_date = argv[2];       // 截止日期
+        std::string features = argv[3];   // 开启的功能模块
+        std::string databasePath = std::string(homeDir) + "/database/" + features + "/activate.json";
         std::string activate_key;
         json tmp_data;
         // 加载数据库，并将其导入到可操作的对象中
         {
             std::ifstream json_load(databasePath);
             if (!json_load.is_open()) {
-                std::cerr << "[-] 错误：无法读取文件，请检查路径权限！\nError: Unable to load files, please check permission of the address!" << std::endl;
-                return -1;
+                std::cerr << "[-] 警告：无法读取文件，请检查路径权限或文件是否存在！\nWarning: Unable to load files, please check permission of the address or find out if the document really exists!" << std::endl;
+                tmp_data = json::object(); // 如果文件不存在或无法读取，则初始化为空对象
             }
-            json_load >> tmp_data;
+            else {
+                json_load >> tmp_data;
+            }
         }
-        // 输入的生成信息
-        std::string expire_date = argv[2];       // 截止日期
-        std::string features = argv[3];   // 开启的功能模块
+        
         // 向可操作对象中添加指定数量的激活码字典
         int start_index = tmp_data.size(); // 获取当前数据库中已有的激活码数量，作为自增 ID 的起始值
         int end_index = start_index + std::stoi(argv[4]); // 计算结束索引，用stoi将argv[3]由字符串指针转换为整型
@@ -250,6 +254,11 @@ int main(int argc, char* argv[]) {
         }
         // 将生成的激活码追加写入数据库中
         {
+            // 确保目录存在，如果不存在则创建
+            std::filesystem::path dirPath = std::filesystem::path(databasePath).parent_path();  // 获取父目录路径
+            std::error_code ec; // 用于捕获错误信息
+            std::filesystem::create_directories(dirPath, ec);  // 创建目录，如果目录已存在则不会报错
+            
             std::ofstream json_write(databasePath);
             if (!json_write.is_open()) {
                 std::cerr << "[-] 错误：无法写入文件，请检查路径权限！\nError: Unable to write in files, please check permission of the address!" << std::endl;
@@ -257,7 +266,7 @@ int main(int argc, char* argv[]) {
             }
             json_write << tmp_data.dump(4);
         }
-        std::cout << "[+] 批量激活码已生成并写入 ~/database/" << argv[2] << "/activate.json" << std::endl;
+        std::cout << "[+] 批量激活码已生成并写入 ~/database/" << features << "/activate.json" << std::endl;
     }
     else if (argc == 4) {
         // 获取 Linux 家目录环境变量
