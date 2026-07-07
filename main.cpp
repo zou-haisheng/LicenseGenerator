@@ -137,6 +137,7 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
     EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
     if (!md_ctx) {   // 检查内存分配是否成功
         EVP_PKEY_free(pkey);
+        std::cerr << "[-] 错误：EVP_MD_CTX 内存分配失败！" << std::endl;
         return false;
     }
 
@@ -150,6 +151,7 @@ bool RsaSignWithFile(const std::vector<unsigned char>& data, std::vector<unsigne
             if (1 != EVP_SignFinal(md_ctx, signature.data(), &sig_len, pkey)) {
                 signature.resize(sig_len);
                 is_success = true;    // 全部成功才设置为true
+                std::cout << "[+] RSA 签名成功，签名长度: " << sig_len << " 字节" << std::endl;
             }
         }
     }
