@@ -35,11 +35,9 @@ def activate():
             activate_data = json.load(f)
             if activate_key not in activate_data:
                 return jsonify({"status": "error", "message": "Invalid activation key"}), 400
-#            if activate_data[activate_key].get("features") != features:
-#                return jsonify({"status": "error", "message": "Feature mismatch"}), 400
     except Exception as e:
         print(f"Error reading activation data: {e}")
-        return jsonify({"status": "error", "message": "Server error"}), 400
+        return jsonify({"status": "error", "message": f"Server error: {str(e)}"}), 400
     key_info = activate_data.get(activate_key)
     expire_date = key_info.get("expire_date")  # 授权时间（查数据库）
     status = key_info.get("status")  # 状态（查数据库）
